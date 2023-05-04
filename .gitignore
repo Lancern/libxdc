@@ -2,8 +2,10 @@ bin/
 build/*
 .vscode
 .gdb_history
+.cache
 libfuzzer_bin
 *.so
 *.a
 tester_dyn
 tester_static
+compile_commands.json
