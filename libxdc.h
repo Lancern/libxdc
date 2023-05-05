@@ -30,40 +30,46 @@ SOFTWARE.
 
 #define LIBXDC_RELEASE_VERSION 2
 
+#if defined(_MSC_VER) && defined(LIBXDC_BUILD_SHARED)
+#define LIBXDC_IMPORT __declspec(dllimport)
+#else
+#define LIBXDC_IMPORT
+#endif
+
 #define PT_TRACE_END			__extension__ 0b01010101
 
 typedef void libxdc_t;
 
-typedef enum decoder_result_s { 
-	decoder_success, 
+typedef enum decoder_result_s {
+	decoder_success,
 	decoder_success_pt_overflow,
-	decoder_page_fault, 
+	decoder_page_fault,
 	decoder_error,
 	decoder_unkown_packet,
 } decoder_result_t;
 
-typedef enum disassembler_mode_s { 
-	mode_16, 
-	mode_32, 
+typedef enum disassembler_mode_s {
+	mode_16,
+	mode_32,
 	mode_64,
 } disassembler_mode_t;
 
-uint16_t libxdc_get_release_version(void);
+LIBXDC_IMPORT uint16_t libxdc_get_release_version(void);
 
-void libxdc_reset_trace_cache(libxdc_t* self);
+LIBXDC_IMPORT void libxdc_reset_trace_cache(libxdc_t* self);
 
-libxdc_t* libxdc_init(uint64_t filter[4][2], void* (*page_cache_fetch_fptr)(void*, uint64_t, bool*), void* page_cache_fetch_opaque, void* bitmap_ptr, size_t bitmap_size);
-decoder_result_t libxdc_decode(libxdc_t* self, uint8_t* data, size_t len);
+LIBXDC_IMPORT libxdc_t* libxdc_init(uint64_t filter[4][2], void* (*page_cache_fetch_fptr)(void*, uint64_t, bool*), void* page_cache_fetch_opaque, void* bitmap_ptr, size_t bitmap_size);
+LIBXDC_IMPORT decoder_result_t libxdc_decode(libxdc_t* self, uint8_t* data, size_t len);
 
-uint64_t libxdc_bitmap_get_hash(libxdc_t* self);
-uint64_t libxdc_get_page_fault_addr(libxdc_t* self);
+LIBXDC_IMPORT uint64_t libxdc_bitmap_get_hash(libxdc_t* self);
+LIBXDC_IMPORT uint64_t libxdc_get_page_fault_addr(libxdc_t* self);
 
-void libxdc_free(libxdc_t* self);
-void libxdc_bitmap_reset(libxdc_t* self);
+LIBXDC_IMPORT void libxdc_free(libxdc_t* self);
+LIBXDC_IMPORT void libxdc_bitmap_reset(libxdc_t* self);
 
-void libxdc_register_bb_callback(libxdc_t* self,  void (*basic_block_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* basic_block_callback_opaque);
-void libxdc_register_edge_callback(libxdc_t* self,  void (*edge_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* edge_callback_opaque);
-void libxdc_register_ip_callback(libxdc_t* self,  void (*ip_callback)(void*, disassembler_mode_t, uint64_t), void* ip_callback_opaque);
+LIBXDC_IMPORT void libxdc_register_bb_callback(libxdc_t* self,  void (*basic_block_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* basic_block_callback_opaque);
+LIBXDC_IMPORT void libxdc_register_edge_callback(libxdc_t* self,  void (*edge_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* edge_callback_opaque);
+LIBXDC_IMPORT void libxdc_register_ip_callback(libxdc_t* self,  void (*ip_callback)(void*, disassembler_mode_t, uint64_t), void* ip_callback_opaque);
 
-void libxdc_enable_tracing(libxdc_t* self);
-void libxdc_disable_tracing(libxdc_t* self);
+LIBXDC_IMPORT void libxdc_enable_tracing(libxdc_t* self);
+LIBXDC_IMPORT void libxdc_disable_tracing(libxdc_t* self);

@@ -79,6 +79,7 @@ endfunction()
 
 if (LIBXDC_BUILD_SHARED)
     add_libxdc_library(libxdc_shared SHARED)
+    target_compile_definitions(libxdc_shared PUBLIC LIBXDC_BUILD_SHARED)
 else()
     add_libxdc_library(libxdc_static STATIC)
 endif()

@@ -2,7 +2,11 @@
 #include <stdlib.h>
 #include "mmh3.h"
 
+#ifdef __GNUC__
 #define FORCE_INLINE inline __attribute__((always_inline))
+#else
+#define FORCE_INLINE inline
+#endif
 
 FORCE_INLINE uint32_t rotl32(uint32_t x, int8_t r) {
     return (x << r) | (x >> (32 - r));
@@ -115,7 +119,7 @@ void mmh3_x86_128(const void *key, const uint64_t len, uint32_t seed, void *out)
         h1 ^= k1;
 
         h1 = ROTL32(h1, 19);
-        h1 += h2; 
+        h1 += h2;
         h1 = 5*h1 + 0x561ccd1b;
 
         k2 *= c2;
@@ -123,24 +127,24 @@ void mmh3_x86_128(const void *key, const uint64_t len, uint32_t seed, void *out)
         k2 *= c3;
         h2 ^= k2;
 
-        h2 = ROTL32(h2, 17); 
+        h2 = ROTL32(h2, 17);
         h2 += h3;
         h2 = 5*h2 + 0x0bcaa747;
-        
-        k3 *= c3; 
+
+        k3 *= c3;
         k3 = ROTL32(k3, 17);
         k3 *= c4;
         h3 ^= k3;
-        
+
         h3 = ROTL32(h3, 15);
-        h3 += h4; 
+        h3 += h4;
         h3 = 5*h3 + 0x96cd1c35;
-        
+
         k4 *= c4;
         k4  = ROTL32(k4, 18);
         k4 *= c1;
         h4 ^= k4;
-        
+
         h4 = ROTL32(h4, 13);
         h4 += h1;
         h4 = 5*h4 + 0x32ac3b17;
@@ -234,7 +238,7 @@ void mmh3_x64_128(const void *key, const uint64_t len, const uint32_t seed, void
     for (int i = 0; i < nblocks; i++) {
         uint64_t k1 = getblock64(blocks, i*2 + 0);
         uint64_t k2 = getblock64(blocks, i*2 + 1);
-        
+
         k1 *= c1;
         k1 = ROTL64(k1, 31);
         k1 *= c2;
@@ -288,7 +292,7 @@ void mmh3_x64_128(const void *key, const uint64_t len, const uint32_t seed, void
     // finalize
     h1 ^= len;
     h2 ^= len;
-    
+
     h1 += h2;
     h2 += h1;
 

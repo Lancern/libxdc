@@ -20,8 +20,8 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
-Note: 
-This Intel PT software decoder is partially inspired and based on Andi 
+Note:
+This Intel PT software decoder is partially inspired and based on Andi
 Kleen's fastdecode.c (simple-pt). m
 See: https://github.com/andikleen/simple-pt/blob/master/fastdecode.c
 
@@ -59,6 +59,7 @@ See: https://github.com/andikleen/simple-pt/blob/master/fastdecode.c
 
 #define _GNU_SOURCE
 
+#include "core.h"
 #include "libxdc.h"
 #include "decoder.h"
 
@@ -66,62 +67,62 @@ See: https://github.com/andikleen/simple-pt/blob/master/fastdecode.c
 #define BENCHMARK 				1
 
 
-#define PT_TRACE_END			__extension__ 0b01010101
+#define PT_TRACE_END			0x55
 
 #define PT_PKT_GENERIC_LEN		2
-#define PT_PKT_GENERIC_BYTE0	__extension__ 0b00000010
+#define PT_PKT_GENERIC_BYTE0	0x02
 
 #define PT_PKT_LTNT_LEN			8
 #define PT_PKT_LTNT_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_LTNT_BYTE1		__extension__ 0b10100011
+#define PT_PKT_LTNT_BYTE1		0xA3
 
 #define PT_PKT_PIP_LEN			8
 #define PT_PKT_PIP_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_PIP_BYTE1		__extension__ 0b01000011
+#define PT_PKT_PIP_BYTE1		0x43
 
 #define PT_PKT_CBR_LEN			4
 #define PT_PKT_CBR_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_CBR_BYTE1		__extension__ 0b00000011
+#define PT_PKT_CBR_BYTE1		0x03
 
 #define PT_PKT_OVF_LEN			2
 #define PT_PKT_OVF_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_OVF_BYTE1		__extension__ 0b11110011
+#define PT_PKT_OVF_BYTE1		0xF3
 
 #define PT_PKT_PSB_LEN			16
 #define PT_PKT_PSB_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_PSB_BYTE1		__extension__ 0b10000010
+#define PT_PKT_PSB_BYTE1		0x82
 
 #define PT_PKT_PSBEND_LEN		2
 #define PT_PKT_PSBEND_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_PSBEND_BYTE1		__extension__ 0b00100011
+#define PT_PKT_PSBEND_BYTE1		0x23
 
 #define PT_PKT_MNT_LEN			11
 #define PT_PKT_MNT_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_MNT_BYTE1		__extension__ 0b11000011
-#define PT_PKT_MNT_BYTE2		__extension__ 0b10001000
+#define PT_PKT_MNT_BYTE1		0xC3
+#define PT_PKT_MNT_BYTE2		0x88
 
 #define PT_PKT_TMA_LEN			7
 #define PT_PKT_TMA_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_TMA_BYTE1		__extension__ 0b01110011
+#define PT_PKT_TMA_BYTE1		0x73
 
 #define PT_PKT_VMCS_LEN			7
 #define PT_PKT_VMCS_BYTE0		PT_PKT_GENERIC_BYTE0
-#define PT_PKT_VMCS_BYTE1		__extension__ 0b11001000
+#define PT_PKT_VMCS_BYTE1		0xC8
 
 #define	PT_PKT_TS_LEN			2
 #define PT_PKT_TS_BYTE0			PT_PKT_GENERIC_BYTE0
-#define PT_PKT_TS_BYTE1			__extension__ 0b10000011
+#define PT_PKT_TS_BYTE1			0x83
 
 #define PT_PKT_MODE_LEN			2
-#define PT_PKT_MODE_BYTE0		__extension__ 0b10011001
+#define PT_PKT_MODE_BYTE0		0x99
 
 #define PT_PKT_TIP_LEN			8
 #define PT_PKT_TIP_SHIFT		5
-#define PT_PKT_TIP_MASK			__extension__ 0b00011111
-#define PT_PKT_TIP_BYTE0		__extension__ 0b00001101
-#define PT_PKT_TIP_PGE_BYTE0	__extension__ 0b00010001
-#define PT_PKT_TIP_PGD_BYTE0	__extension__ 0b00000001
-#define PT_PKT_TIP_FUP_BYTE0	__extension__ 0b00011101
+#define PT_PKT_TIP_MASK			0x1F
+#define PT_PKT_TIP_BYTE0		0x0D
+#define PT_PKT_TIP_PGE_BYTE0	0x11
+#define PT_PKT_TIP_PGD_BYTE0	0x01
+#define PT_PKT_TIP_FUP_BYTE0	0x1D
 
 
 #define TIP_VALUE_0				(0x0<<5)
@@ -212,7 +213,7 @@ void pt_decoder_flush(decoder_t* self){
 	self->decoder_state_result->start = 0;
 	self->decoder_state_result->valid = 0;
 	self->decoder_state_result->valid = false;
-}	
+}
 
 uint64_t pt_decoder_get_page_fault_addr(decoder_t* self){
 	return self->page_fault_addr;
@@ -450,7 +451,7 @@ static void tip_fup_handler(decoder_t* self, uint8_t** p){
 	if(self->ovp_state){
 		self->decoder_state->state = TraceEnabledWithLastIP;
 		self->decoder_state->last_ip = get_ip_val(self, p);
-	
+
 		LOGGER("FUP OVP   \t%lx (TNT: %d)\n", self->last_tip, count_tnt(self->tnt_cache_state));
 
 		self->ovp_state = false;
@@ -458,7 +459,7 @@ static void tip_fup_handler(decoder_t* self, uint8_t** p){
 
 		return;
 	}
-		
+
 	self->last_fup_src = get_ip_val(self, p);
 	LOGGER("FUP    \t%lx (TNT: %d)\n", self->last_fup_src, count_tnt(self->tnt_cache_state));
 
@@ -483,269 +484,7 @@ static inline void pip_handler(decoder_t* self, uint8_t** p){
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
-__attribute__((hot)) decoder_result_t decode_buffer(decoder_t* self, uint8_t* map, size_t len){
-
-	static void* dispatch_table_level_1[] = {
-		__extension__ &&handle_pt_pad,		// 00000000
-		__extension__ &&handle_pt_tip_pgd,	// 00000001
-		__extension__ &&handle_pt_level_2,	// 00000010
-		__extension__ &&handle_pt_cyc,		// 00000011
-		__extension__ &&handle_pt_tnt8,		// 00000100
-		__extension__ &&handle_pt_error,		// 00000101
-		__extension__ &&handle_pt_tnt8,		// 00000110
-		__extension__ &&handle_pt_cyc,		// 00000111
-		__extension__ &&handle_pt_tnt8,		// 00001000
-		__extension__ &&handle_pt_error,		// 00001001
-		__extension__ &&handle_pt_tnt8,		// 00001010
-		__extension__ &&handle_pt_cyc,		// 00001011
-		__extension__ &&handle_pt_tnt8,		// 00001100
-		__extension__ &&handle_pt_tip,		// 00001101
-		__extension__ &&handle_pt_tnt8,		// 00001110
-		__extension__ &&handle_pt_cyc,		// 00001111
-		__extension__ &&handle_pt_tnt8,		// 00010000
-		__extension__ &&handle_pt_tip_pge,	// 00010001
-		__extension__ &&handle_pt_tnt8,		// 00010010
-		__extension__ &&handle_pt_cyc,		// 00010011
-		__extension__ &&handle_pt_tnt8,		// 00010100
-		__extension__ &&handle_pt_error,		// 00010101
-		__extension__ &&handle_pt_tnt8,		// 00010110
-		__extension__ &&handle_pt_cyc,		// 00010111
-		__extension__ &&handle_pt_tnt8,		// 00011000
-		__extension__ &&handle_pt_tsc,		// 00011001
-		__extension__ &&handle_pt_tnt8,		// 00011010
-		__extension__ &&handle_pt_cyc,		// 00011011
-		__extension__ &&handle_pt_tnt8,		// 00011100
-		__extension__ &&handle_pt_tip_fup,	// 00011101
-		__extension__ &&handle_pt_tnt8,		// 00011110
-		__extension__ &&handle_pt_cyc,		// 00011111
-		__extension__ &&handle_pt_tnt8,		// 00100000
-		__extension__ &&handle_pt_tip_pgd,	// 00100001
-		__extension__ &&handle_pt_tnt8,		// 00100010
-		__extension__ &&handle_pt_cyc,		// 00100011
-		__extension__ &&handle_pt_tnt8,		// 00100100
-		__extension__ &&handle_pt_error,		// 00100101
-		__extension__ &&handle_pt_tnt8,		// 00100110
-		__extension__ &&handle_pt_cyc,		// 00100111
-		__extension__ &&handle_pt_tnt8,		// 00101000
-		__extension__ &&handle_pt_error,		// 00101001
-		__extension__ &&handle_pt_tnt8,		// 00101010
-		__extension__ &&handle_pt_cyc,		// 00101011
-		__extension__ &&handle_pt_tnt8,		// 00101100
-		__extension__ &&handle_pt_tip,		// 00101101
-		__extension__ &&handle_pt_tnt8,		// 00101110
-		__extension__ &&handle_pt_cyc,		// 00101111
-		__extension__ &&handle_pt_tnt8,		// 00110000
-		__extension__ &&handle_pt_tip_pge,	// 00110001
-		__extension__ &&handle_pt_tnt8,		// 00110010
-		__extension__ &&handle_pt_cyc,		// 00110011
-		__extension__ &&handle_pt_tnt8,		// 00110100
-		__extension__ &&handle_pt_error,		// 00110101
-		__extension__ &&handle_pt_tnt8,		// 00110110
-		__extension__ &&handle_pt_cyc,		// 00110111
-		__extension__ &&handle_pt_tnt8,		// 00111000
-		__extension__ &&handle_pt_error,		// 00111001
-		__extension__ &&handle_pt_tnt8,		// 00111010
-		__extension__ &&handle_pt_cyc,		// 00111011
-		__extension__ &&handle_pt_tnt8,		// 00111100
-		__extension__ &&handle_pt_tip_fup,	// 00111101
-		__extension__ &&handle_pt_tnt8,		// 00111110
-		__extension__ &&handle_pt_cyc,		// 00111111
-		__extension__ &&handle_pt_tnt8,		// 01000000
-		__extension__ &&handle_pt_tip_pgd,	// 01000001
-		__extension__ &&handle_pt_tnt8,		// 01000010
-		__extension__ &&handle_pt_cyc,		// 01000011
-		__extension__ &&handle_pt_tnt8,		// 01000100
-		__extension__ &&handle_pt_error,		// 01000101
-		__extension__ &&handle_pt_tnt8,		// 01000110
-		__extension__ &&handle_pt_cyc,		// 01000111
-		__extension__ &&handle_pt_tnt8,		// 01001000
-		__extension__ &&handle_pt_error,		// 01001001
-		__extension__ &&handle_pt_tnt8,		// 01001010
-		__extension__ &&handle_pt_cyc,		// 01001011
-		__extension__ &&handle_pt_tnt8,		// 01001100
-		__extension__ &&handle_pt_tip,		// 01001101
-		__extension__ &&handle_pt_tnt8,		// 01001110
-		__extension__ &&handle_pt_cyc,		// 01001111
-		__extension__ &&handle_pt_tnt8,		// 01010000
-		__extension__ &&handle_pt_tip_pge,	// 01010001
-		__extension__ &&handle_pt_tnt8,		// 01010010
-		__extension__ &&handle_pt_cyc,		// 01010011
-		__extension__ &&handle_pt_tnt8,		// 01010100
-		__extension__ &&handle_pt_exit,		// 01010101
-		__extension__ &&handle_pt_tnt8,		// 01010110
-		__extension__ &&handle_pt_cyc,		// 01010111
-		__extension__ &&handle_pt_tnt8,		// 01011000
-		__extension__ &&handle_pt_mtc,		// 01011001
-		__extension__ &&handle_pt_tnt8,		// 01011010
-		__extension__ &&handle_pt_cyc,		// 01011011
-		__extension__ &&handle_pt_tnt8,		// 01011100
-		__extension__ &&handle_pt_tip_fup,	// 01011101
-		__extension__ &&handle_pt_tnt8,		// 01011110
-		__extension__ &&handle_pt_cyc,		// 01011111
-		__extension__ &&handle_pt_tnt8,		// 01100000
-		__extension__ &&handle_pt_tip_pgd,	// 01100001
-		__extension__ &&handle_pt_tnt8,		// 01100010
-		__extension__ &&handle_pt_cyc,		// 01100011
-		__extension__ &&handle_pt_tnt8,		// 01100100
-		__extension__ &&handle_pt_error,		// 01100101
-		__extension__ &&handle_pt_tnt8,		// 01100110
-		__extension__ &&handle_pt_cyc,		// 01100111
-		__extension__ &&handle_pt_tnt8,		// 01101000
-		__extension__ &&handle_pt_error,		// 01101001
-		__extension__ &&handle_pt_tnt8,		// 01101010
-		__extension__ &&handle_pt_cyc,		// 01101011
-		__extension__ &&handle_pt_tnt8,		// 01101100
-		__extension__ &&handle_pt_tip,		// 01101101
-		__extension__ &&handle_pt_tnt8,		// 01101110
-		__extension__ &&handle_pt_cyc,		// 01101111
-		__extension__ &&handle_pt_tnt8,		// 01110000
-		__extension__ &&handle_pt_tip_pge,	// 01110001
-		__extension__ &&handle_pt_tnt8,		// 01110010
-		__extension__ &&handle_pt_cyc,		// 01110011
-		__extension__ &&handle_pt_tnt8,		// 01110100
-		__extension__ &&handle_pt_error,		// 01110101
-		__extension__ &&handle_pt_tnt8,		// 01110110
-		__extension__ &&handle_pt_cyc,		// 01110111
-		__extension__ &&handle_pt_tnt8,		// 01111000
-		__extension__ &&handle_pt_error,		// 01111001
-		__extension__ &&handle_pt_tnt8,		// 01111010
-		__extension__ &&handle_pt_cyc,		// 01111011
-		__extension__ &&handle_pt_tnt8,		// 01111100
-		__extension__ &&handle_pt_tip_fup,	// 01111101
-		__extension__ &&handle_pt_tnt8,		// 01111110
-		__extension__ &&handle_pt_cyc,		// 01111111
-		__extension__ &&handle_pt_tnt8,		// 10000000
-		__extension__ &&handle_pt_tip_pgd,	// 10000001
-		__extension__ &&handle_pt_tnt8,		// 10000010
-		__extension__ &&handle_pt_cyc,		// 10000011
-		__extension__ &&handle_pt_tnt8,		// 10000100
-		__extension__ &&handle_pt_error,		// 10000101
-		__extension__ &&handle_pt_tnt8,		// 10000110
-		__extension__ &&handle_pt_cyc,		// 10000111
-		__extension__ &&handle_pt_tnt8,		// 10001000
-		__extension__ &&handle_pt_error,		// 10001001
-		__extension__ &&handle_pt_tnt8,		// 10001010
-		__extension__ &&handle_pt_cyc,		// 10001011
-		__extension__ &&handle_pt_tnt8,		// 10001100
-		__extension__ &&handle_pt_tip,		// 10001101
-		__extension__ &&handle_pt_tnt8,		// 10001110
-		__extension__ &&handle_pt_cyc,		// 10001111
-		__extension__ &&handle_pt_tnt8,		// 10010000
-		__extension__ &&handle_pt_tip_pge,	// 10010001
-		__extension__ &&handle_pt_tnt8,		// 10010010
-		__extension__ &&handle_pt_cyc,		// 10010011
-		__extension__ &&handle_pt_tnt8,		// 10010100
-		__extension__ &&handle_pt_error,		// 10010101
-		__extension__ &&handle_pt_tnt8,		// 10010110
-		__extension__ &&handle_pt_cyc,		// 10010111
-		__extension__ &&handle_pt_tnt8,		// 10011000
-		__extension__ &&handle_pt_mode,		// 10011001
-		__extension__ &&handle_pt_tnt8,		// 10011010
-		__extension__ &&handle_pt_cyc,		// 10011011
-		__extension__ &&handle_pt_tnt8,		// 10011100
-		__extension__ &&handle_pt_tip_fup,	// 10011101
-		__extension__ &&handle_pt_tnt8,		// 10011110
-		__extension__ &&handle_pt_cyc,		// 10011111
-		__extension__ &&handle_pt_tnt8,		// 10100000
-		__extension__ &&handle_pt_tip_pgd,	// 10100001
-		__extension__ &&handle_pt_tnt8,		// 10100010
-		__extension__ &&handle_pt_cyc,		// 10100011
-		__extension__ &&handle_pt_tnt8,		// 10100100
-		__extension__ &&handle_pt_error,		// 10100101
-		__extension__ &&handle_pt_tnt8,		// 10100110
-		__extension__ &&handle_pt_cyc,		// 10100111
-		__extension__ &&handle_pt_tnt8,		// 10101000
-		__extension__ &&handle_pt_error,		// 10101001
-		__extension__ &&handle_pt_tnt8,		// 10101010
-		__extension__ &&handle_pt_cyc,		// 10101011
-		__extension__ &&handle_pt_tnt8,		// 10101100
-		__extension__ &&handle_pt_tip,		// 10101101
-		__extension__ &&handle_pt_tnt8,		// 10101110
-		__extension__ &&handle_pt_cyc,		// 10101111
-		__extension__ &&handle_pt_tnt8,		// 10110000
-		__extension__ &&handle_pt_tip_pge,	// 10110001
-		__extension__ &&handle_pt_tnt8,		// 10110010
-		__extension__ &&handle_pt_cyc,		// 10110011
-		__extension__ &&handle_pt_tnt8,		// 10110100
-		__extension__ &&handle_pt_error,		// 10110101
-		__extension__ &&handle_pt_tnt8,		// 10110110
-		__extension__ &&handle_pt_cyc,		// 10110111
-		__extension__ &&handle_pt_tnt8,		// 10111000
-		__extension__ &&handle_pt_error,		// 10111001
-		__extension__ &&handle_pt_tnt8,		// 10111010
-		__extension__ &&handle_pt_cyc,		// 10111011
-		__extension__ &&handle_pt_tnt8,		// 10111100
-		__extension__ &&handle_pt_tip_fup,	// 10111101
-		__extension__ &&handle_pt_tnt8,		// 10111110
-		__extension__ &&handle_pt_cyc,		// 10111111
-		__extension__ &&handle_pt_tnt8,		// 11000000
-		__extension__ &&handle_pt_tip_pgd,	// 11000001
-		__extension__ &&handle_pt_tnt8,		// 11000010
-		__extension__ &&handle_pt_cyc,		// 11000011
-		__extension__ &&handle_pt_tnt8,		// 11000100
-		__extension__ &&handle_pt_error,		// 11000101
-		__extension__ &&handle_pt_tnt8,		// 11000110
-		__extension__ &&handle_pt_cyc,		// 11000111
-		__extension__ &&handle_pt_tnt8,		// 11001000
-		__extension__ &&handle_pt_error,		// 11001001
-		__extension__ &&handle_pt_tnt8,		// 11001010
-		__extension__ &&handle_pt_cyc,		// 11001011
-		__extension__ &&handle_pt_tnt8,		// 11001100
-		__extension__ &&handle_pt_tip,		// 11001101
-		__extension__ &&handle_pt_tnt8,		// 11001110
-		__extension__ &&handle_pt_cyc,		// 11001111
-		__extension__ &&handle_pt_tnt8,		// 11010000
-		__extension__ &&handle_pt_tip_pge,	// 11010001
-		__extension__ &&handle_pt_tnt8,		// 11010010
-		__extension__ &&handle_pt_cyc,		// 11010011
-		__extension__ &&handle_pt_tnt8,		// 11010100
-		__extension__ &&handle_pt_error,		// 11010101
-		__extension__ &&handle_pt_tnt8,		// 11010110
-		__extension__ &&handle_pt_cyc,		// 11010111
-		__extension__ &&handle_pt_tnt8,		// 11011000
-		__extension__ &&handle_pt_error,		// 11011001
-		__extension__ &&handle_pt_tnt8,		// 11011010
-		__extension__ &&handle_pt_cyc,		// 11011011
-		__extension__ &&handle_pt_tnt8,		// 11011100
-		__extension__ &&handle_pt_tip_fup,	// 11011101
-		__extension__ &&handle_pt_tnt8,		// 11011110
-		__extension__ &&handle_pt_cyc,		// 11011111
-		__extension__ &&handle_pt_tnt8,		// 11100000
-		__extension__ &&handle_pt_tip_pgd,	// 11100001
-		__extension__ &&handle_pt_tnt8,		// 11100010
-		__extension__ &&handle_pt_cyc,		// 11100011
-		__extension__ &&handle_pt_tnt8,		// 11100100
-		__extension__ &&handle_pt_error,		// 11100101
-		__extension__ &&handle_pt_tnt8,		// 11100110
-		__extension__ &&handle_pt_cyc,		// 11100111
-		__extension__ &&handle_pt_tnt8,		// 11101000
-		__extension__ &&handle_pt_error,		// 11101001
-		__extension__ &&handle_pt_tnt8,		// 11101010
-		__extension__ &&handle_pt_cyc,		// 11101011
-		__extension__ &&handle_pt_tnt8,		// 11101100
-		__extension__ &&handle_pt_tip,		// 11101101
-		__extension__ &&handle_pt_tnt8,		// 11101110
-		__extension__ &&handle_pt_cyc,		// 11101111
-		__extension__ &&handle_pt_tnt8,		// 11110000
-		__extension__ &&handle_pt_tip_pge,	// 11110001
-		__extension__ &&handle_pt_tnt8,		// 11110010
-		__extension__ &&handle_pt_cyc,		// 11110011
-		__extension__ &&handle_pt_tnt8,		// 11110100
-		__extension__ &&handle_pt_error,		// 11110101
-		__extension__ &&handle_pt_tnt8,		// 11110110
-		__extension__ &&handle_pt_cyc,		// 11110111
-		__extension__ &&handle_pt_tnt8,		// 11111000
-		__extension__ &&handle_pt_error,		// 11111001
-		__extension__ &&handle_pt_tnt8,		// 11111010
-		__extension__ &&handle_pt_cyc,		// 11111011
-		__extension__ &&handle_pt_tnt8,		// 11111100
-		__extension__ &&handle_pt_tip_fup,	// 11111101
-		__extension__ &&handle_pt_tnt8,		// 11111110
-		__extension__ &&handle_pt_error,		// 11111111
-	};
-
-	#define DISPATCH_L1() /*printf("-> %p -> %x\n", p, p[0]);*/ goto *dispatch_table_level_1[p[0]]
-	//#define DISPATCH_L2() goto *dispatch_table_level_2[p[1]]
+LIBXDC_HOT decoder_result_t decode_buffer(decoder_t* self, uint8_t* map, size_t len){
 
 	bool pt_overflowed = false;
 	self->page_fault_found = false;
@@ -762,166 +501,220 @@ __attribute__((hot)) decoder_result_t decode_buffer(decoder_t* self, uint8_t* ma
 		p = end;
 		goto handle_pt_exit;
 	}
-	
-	DISPATCH_L1();
-	handle_pt_mode:
-		/* 
-		// Code to test if TSX code has been executed inside the guest
-		if ((((char*)(p))[1] & 0xE0) == 0x20){
-			if ( (((char*)(p))[1] & 0x3))
-				fprintf(stderr, "TSX FOUND %x\n", (((char*)(p))[1] & 0x3));
-		}
-		*/
-		
-		switch (p[1] >> 5) {
-			case 0:
-				switch (p[1] & 3) {
-					case 0:
-						self->mode = mode_16;
-						break;
-					case 1:
-						self->mode = mode_64;
-						break;
-					case 2:
-						self->mode = mode_32;
-						break;
-				}
-			default:
-				break;
-		}
-		
-		p += PT_PKT_MODE_LEN;
-		LOGGER("MODE\n");
-		#ifdef DECODER_LOG
-		self->log.mode++;
-		#endif
-		DISPATCH_L1();
-	handle_pt_tip:
-		tip_handler(self, &p);
-		if(unlikely(self->page_fault_found)){
-			pt_decoder_flush(self);
-			return decoder_page_fault;
-		}
-		DISPATCH_L1();
-	handle_pt_tip_pge:
-		tip_pge_handler(self, &p);
-		if(unlikely(self->page_fault_found)){
-			pt_decoder_flush(self);
-			return decoder_page_fault;
-		}
-		DISPATCH_L1();
-	handle_pt_tip_pgd:
-		tip_pgd_handler(self, &p);
-		if(unlikely(self->page_fault_found)){
-			pt_decoder_flush(self);
-			return decoder_page_fault;
-		}
-		DISPATCH_L1();
-	handle_pt_tip_fup:
-		tip_fup_handler(self, &p);
-		DISPATCH_L1();
-	handle_pt_pad:
-		while(unlikely(!(*(++p)))){}
-		//p++;
-		#ifdef DECODER_LOG
-		self->log.pad++;
-		#endif
-		DISPATCH_L1();
-	handle_pt_level_2:
-		switch(p[1]){
-			case __extension__ 0b00000011:	/* CBR */
-				p += PT_PKT_CBR_LEN;
-				#ifdef DECODER_LOG
-				self->log.cbr++;
-				#endif
-				DISPATCH_L1();
-				
-			case __extension__ 0b00100011:	/* PSBEND */
-				p += PT_PKT_PSBEND_LEN;
-				LOGGER("PSBEND\n");
-				#ifdef DECODER_LOG
-				self->log.psbend++;
-				#endif
-				DISPATCH_L1();
 
-			case __extension__ 0b01000011:	/* PIP */
-				pip_handler(self, &p);
-				DISPATCH_L1();
+	while (true) {
+		switch (p[0]) {
+		case 0: goto handle_pt_pad;
 
-			case __extension__ 0b10000010:	/* PSB */
-				self->last_tip = 0;
-				p += PT_PKT_PSB_LEN;
-				LOGGER("PSB\n");
-				#ifdef DECODER_LOG
-				self->log.psbc++;
-				#endif
-				DISPATCH_L1();
+		case 2: goto handle_pt_level_2;
 
-			case __extension__ 0b10000011:	/* TS  */
-				/*
-				abort();
-				fprintf(stderr, "\n\n===========> TS\n" );
-				p += PT_PKT_TS_LEN;
-	 			fprintf(stderr, "ERROR DETECTED...FLUSHING DISASSEMBLER!\n");
-				*/
-				return decoder_error;
-				//DISPATCH_L1();
+		case 85: goto handle_pt_exit;
 
-			case __extension__ 0b10100011:	/* LTNT */
+		case 5:
+		case 9:
+		case 21:
+		case 37:
+		case 41:
+		case 53:
+		case 57:
+		case 69:
+		case 73:
+		case 101:
+		case 105:
+		case 117:
+		case 121:
+		case 133:
+		case 137:
+		case 149:
+		case 165:
+		case 169:
+		case 181:
+		case 185:
+		case 197:
+		case 201:
+		case 213:
+		case 217:
+		case 229:
+		case 233:
+		case 245:
+		case 249:
+		case 255: goto handle_pt_error;
+
+		default:
+			if ((p[0] & 0x1F) == 0x01) {
+				goto handle_pt_tip_pgd;
+			}
+			if ((p[0] & 0x03) == 0x03) {
+				goto handle_pt_cyc;
+			}
+			if ((p[0] & 0x01) == 0) {
+				goto handle_pt_tnt8;
+			}
+			if ((p[0] & 0x1F) == 0x1D) {
+				goto handle_pt_tip_fup;
+			}
+			assert(false);
+		}
+
+		handle_pt_mode:
+			/*
+			// Code to test if TSX code has been executed inside the guest
+			if ((((char*)(p))[1] & 0xE0) == 0x20){
+				if ( (((char*)(p))[1] & 0x3))
+					fprintf(stderr, "TSX FOUND %x\n", (((char*)(p))[1] & 0x3));
+			}
+			*/
+
+			switch (p[1] >> 5) {
+				case 0:
+					switch (p[1] & 3) {
+						case 0:
+							self->mode = mode_16;
+							break;
+						case 1:
+							self->mode = mode_64;
+							break;
+						case 2:
+							self->mode = mode_32;
+							break;
+					}
+				default:
+					break;
+			}
+
+			p += PT_PKT_MODE_LEN;
+			LOGGER("MODE\n");
+			#ifdef DECODER_LOG
+			self->log.mode++;
+			#endif
+			continue;
+		handle_pt_tip:
+			tip_handler(self, &p);
+			if(unlikely(self->page_fault_found)){
+				pt_decoder_flush(self);
+				return decoder_page_fault;
+			}
+			continue;
+		handle_pt_tip_pge:
+			tip_pge_handler(self, &p);
+			if(unlikely(self->page_fault_found)){
+				pt_decoder_flush(self);
+				return decoder_page_fault;
+			}
+			continue;
+		handle_pt_tip_pgd:
+			tip_pgd_handler(self, &p);
+			if(unlikely(self->page_fault_found)){
+				pt_decoder_flush(self);
+				return decoder_page_fault;
+			}
+			continue;
+		handle_pt_tip_fup:
+			tip_fup_handler(self, &p);
+			continue;
+		handle_pt_pad:
+			while(unlikely(!(*(++p)))){}
+			//p++;
+			#ifdef DECODER_LOG
+			self->log.pad++;
+			#endif
+			continue;
+		handle_pt_level_2:
+			switch(p[1]){
+				case 0x03:	/* CBR */
+					p += PT_PKT_CBR_LEN;
+					#ifdef DECODER_LOG
+					self->log.cbr++;
+					#endif
+					continue;
+
+				case 0x23:	/* PSBEND */
+					p += PT_PKT_PSBEND_LEN;
+					LOGGER("PSBEND\n");
+					#ifdef DECODER_LOG
+					self->log.psbend++;
+					#endif
+					continue;
+
+				case 0x43:	/* PIP */
+					pip_handler(self, &p);
+					continue;
+
+				case 0x82:	/* PSB */
+					self->last_tip = 0;
+					p += PT_PKT_PSB_LEN;
+					LOGGER("PSB\n");
+					#ifdef DECODER_LOG
+					self->log.psbc++;
+					#endif
+					continue;
+
+				case 0x83:	/* TS  */
+					/*
+					abort();
+					fprintf(stderr, "\n\n===========> TS\n" );
+					p += PT_PKT_TS_LEN;
+					fprintf(stderr, "ERROR DETECTED...FLUSHING DISASSEMBLER!\n");
+					*/
+					return decoder_error;
+					//continue;
+
+				case 0xA3:	/* LTNT */
 #ifdef LIBFUZZER
 				return decoder_unkown_packet;
 #endif
-				LOGGER("LTNT\n");
-				append_tnt_cache_ltnt(self->tnt_cache_state, (uint64_t)*p);
-				p += PT_PKT_LTNT_LEN;
-				#ifdef DECODER_LOG
-				self->log.tnt64++;
-				#endif
-				DISPATCH_L1();
+					LOGGER("LTNT\n");
+					append_tnt_cache_ltnt(self->tnt_cache_state, (uint64_t)*p);
+					p += PT_PKT_LTNT_LEN;
+					#ifdef DECODER_LOG
+					self->log.tnt64++;
+					#endif
+					continue;
 
-			case __extension__ 0b11001000:	/* VMCS */
-				LOGGER("VMCS\n");
-				p += PT_PKT_VMCS_LEN;
-				#ifdef DECODER_LOG
-				self->log.vmcs++;
-				#endif
-				DISPATCH_L1();
+				case 0xC8:	/* VMCS */
+					LOGGER("VMCS\n");
+					p += PT_PKT_VMCS_LEN;
+					#ifdef DECODER_LOG
+					self->log.vmcs++;
+					#endif
+					continue;
 
-			case __extension__ 0b11110011:	/* OVF */
-				LOGGER("OVERFLOW\n");
-				p += PT_PKT_OVF_LEN;
-				self->ovp_state = true;
-				self->last_tip = 0;
-				decoder_statemachine_reset(self->decoder_state);
-				pt_overflowed = true;
+				case 0xF3:	/* OVF */
+					LOGGER("OVERFLOW\n");
+					p += PT_PKT_OVF_LEN;
+					self->ovp_state = true;
+					self->last_tip = 0;
+					decoder_statemachine_reset(self->decoder_state);
+					pt_overflowed = true;
 
-				DISPATCH_L1();
+					continue;
 
-			case __extension__ 0b11000011:	/* MNT */
-			case __extension__ 0b01110011:	/* TMA */
-			default:
-				//printf("unkown packet (level2): %x\n", p[1]);
-				pt_decoder_flush(self);
-				return decoder_unkown_packet;
-				//abort();
+				case 0xC3:	/* MNT */
+				case 0x73:	/* TMA */
+				default:
+					//printf("unkown packet (level2): %x\n", p[1]);
+					pt_decoder_flush(self);
+					return decoder_unkown_packet;
+					//abort();
 
-		}
-	handle_pt_tnt8:
-		LOGGER("TNT %x\n", *p);
-		append_tnt_cache(self->tnt_cache_state, (uint64_t)(*p));
-		p++;
-		#ifdef DECODER_LOG
-		self->log.tnt8++;
-		#endif
-		DISPATCH_L1();
-	handle_pt_mtc:
-	handle_pt_tsc:
-	handle_pt_error:
-	handle_pt_cyc:
-		//printf("unkown packet: %x\n", p[0]);
-		pt_decoder_flush(self);
-		return decoder_unkown_packet;
-		//abort();
+			}
+		handle_pt_tnt8:
+			LOGGER("TNT %x\n", *p);
+			append_tnt_cache(self->tnt_cache_state, (uint64_t)(*p));
+			p++;
+			#ifdef DECODER_LOG
+			self->log.tnt8++;
+			#endif
+			continue;
+		handle_pt_mtc:
+		handle_pt_tsc:
+		handle_pt_error:
+		handle_pt_cyc:
+			//printf("unkown packet: %x\n", p[0]);
+			pt_decoder_flush(self);
+			return decoder_unkown_packet;
+			//abort();
+	}
 
 	handle_pt_exit:
 
@@ -947,7 +740,7 @@ __attribute__((hot)) decoder_result_t decode_buffer(decoder_t* self, uint8_t* ma
 
 		self->disassembler_state->infinite_loop_found = false;
 	}
-		
+
 	pt_decoder_flush(self);
 
 	if(pt_overflowed){

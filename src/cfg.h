@@ -21,7 +21,6 @@ SOFTWARE.
 */
 
 #pragma once
-#define _GNU_SOURCE
 #include <stdint.h>
 #include <stdbool.h>
 #include "khash.h"
@@ -30,10 +29,10 @@ SOFTWARE.
 KHASH_MAP_INIT_INT(ADDR0, uint64_t)
 
 typedef enum cofi_types{
-	COFI_TYPE_CONDITIONAL_BRANCH, 
-	COFI_TYPE_UNCONDITIONAL_DIRECT_BRANCH, 
-	COFI_TYPE_INDIRECT_BRANCH, 
-	COFI_TYPE_NEAR_RET, 
+	COFI_TYPE_CONDITIONAL_BRANCH,
+	COFI_TYPE_UNCONDITIONAL_DIRECT_BRANCH,
+	COFI_TYPE_INDIRECT_BRANCH,
+	COFI_TYPE_NEAR_RET,
 	COFI_TYPE_FAR_TRANSFERS,
 	NO_COFI_TYPE, //COFI_FALLTHROUGH_BASIC_BLOCK
 	OUT_OF_BOUNDS,
@@ -41,7 +40,7 @@ typedef enum cofi_types{
 	PAGE_CACHE_FAILED,
 } cofi_type;
 
-typedef uint32_t  node_id_t; 
+typedef uint32_t  node_id_t;
 
 typedef struct cfg_branch_s {
     node_id_t node_id;

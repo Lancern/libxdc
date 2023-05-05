@@ -34,7 +34,7 @@ SOFTWARE.
 #define IGN_MOD_RM			0
 #define IGN_OPODE_PREFIX	0
 #define MODRM_REG(x)		(x << 3)
-#define MODRM_AND			__extension__ 0b00111000
+#define MODRM_AND			0x38
 
 bool limit_check(uint64_t bb_start, uint64_t bb_end, uint64_t limit_exit, uint64_t entry) {
 	bool covers_exit = (bb_start <= limit_exit) && (limit_exit <= bb_end);
@@ -491,29 +491,26 @@ static inline void inform_disassembler_target_ip(disassembler_t* self, disassemb
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wpedantic"
- __attribute__((hot))  static disas_result_t trace_disassembler_loop(disassembler_t* self, uint64_t* entry_point, uint64_t limit, tnt_cache_t* tnt_cache_state, tracelet_cache_t** new_tracelet, trace_cache_key_t* key, uint64_t* failed_page, disassembler_mode_t mode, bool trace_mode){
- //__attribute__((hot)) static bool trace_disassembler_loop(disassembler_t* self, uint64_t* entry_point, uint64_t limit, tnt_cache_t* tnt_cache_state){
+LIBXDC_HOT static disas_result_t trace_disassembler_loop(disassembler_t* self, uint64_t* entry_point, uint64_t limit, tnt_cache_t* tnt_cache_state, tracelet_cache_t** new_tracelet, trace_cache_key_t* key, uint64_t* failed_page, disassembler_mode_t mode, bool trace_mode){
 
 	//printf("trace_disassembler_loop %lx \n", *entry_point);
 
- 	static void* dispatch_table[] = {
-		&&do_conditional_branch,		// COFI_TYPE_CONDITIONAL_BRANCH,
-		&&do_unconditional_branch,		// COFI_TYPE_UNCONDITIONAL_DIRECT_BRANCH
-		&&do_indirect_branch,			// COFI_TYPE_INDIRECT_BRANCH
-		&&do_near_ret,					// COFI_TYPE_NEAR_RET
-		&&do_far_transfers,				// COFI_TYPE_FAR_TRANSFERS
-		&&do_failure, 					// COFI_NO_COFI_TYPE
-		&&do_out_of_bounds,				// OUT_OF_BOUNDS
-		&&do_infinite_loop,
-		&&do_page_cache_failed,
+	enum {
+		dispatch_conditional_branch,
+		dispatch_unconditional_branch,
+		dispatch_indirect_branch,
+		dispatch_near_ret,
+		dispatch_far_transfers,
+		dispatch_failure,
+		dispatch_out_of_bounds,
+		dispatch_infinite_loop,
+		dispatch_page_cache_failed,
 	};
 
 	#define BRANCH_CHECK()  dispatch_type = !limit_check(self->cfg.base_addr[nid], self->cfg.cofi_addr[nid], limit, *entry_point) &&\
 		 is_empty_tnt_cache(tnt_cache_state) ? OUT_OF_BOUNDS: self->cfg.type[nid];
 
 	#define LOOP_CHECK() dispatch_type = (loop>MAX_LOOP_COUNT) ? INFINITE_LOOP: dispatch_type;
-
-	#define DISPATCH() goto *dispatch_table[dispatch_type]
 
 	int loop = 0;
 	uint8_t dispatch_type = 0;
@@ -529,20 +526,19 @@ static inline void inform_disassembler_target_ip(disassembler_t* self, disassemb
 
 	dispatch_type = self->cfg.type[nid];
 
-	DISPATCH();
-	do_conditional_branch:
-
-		//printf("cond branch ");
-		if(likely(!trace_mode) && self->trace_cache->trace_cache->cache.tnt_bits == MAX_RESULTS_PER_CACHE-1){
-			*entry_point = self->cfg.cofi_addr[nid];
-			if(!trace_mode){
-				*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, true);
+	while (true) {
+		switch (dispatch_type) {
+		case dispatch_conditional_branch:
+			//printf("cond branch ");
+			if(likely(!trace_mode) && self->trace_cache->trace_cache->cache.tnt_bits == MAX_RESULTS_PER_CACHE-1){
+				*entry_point = self->cfg.cofi_addr[nid];
+				if(!trace_mode){
+					*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, true);
+				}
+				return disas_success;
 			}
-			return disas_success;
-		}
 
-
-		switch(process_tnt_cache(tnt_cache_state)){
+			switch(process_tnt_cache(tnt_cache_state)){
 			case TNT_EMPTY:
 				//printf("empty\n");
 				if(!trace_mode){
@@ -561,7 +557,7 @@ static inline void inform_disassembler_target_ip(disassembler_t* self, disassemb
 				loop = 0;
 
 				BRANCH_CHECK();
-				DISPATCH();
+				continue;
 
 			case NOT_TAKEN:
 				//printf("not_taken 1\n");
@@ -573,70 +569,72 @@ static inline void inform_disassembler_target_ip(disassembler_t* self, disassemb
 				nid = get_node_br2(self, nid, tnt_cache_state, failed_page, mode);
 				loop = 0;
 				BRANCH_CHECK();
-				DISPATCH();
-}
+				continue;
+			}
 
-	do_unconditional_branch:
-		//printf("unconditional branch 1\n");
-		if(unlikely(trace_mode)){
-			self->trace_edge_callback(self->trace_edge_callback_opaque, mode, self->cfg.cofi_addr[nid], self->cfg.br1_addr[nid]);
+		case dispatch_unconditional_branch:
+			//printf("unconditional branch 1\n");
+			if(unlikely(trace_mode)){
+				self->trace_edge_callback(self->trace_edge_callback_opaque, mode, self->cfg.cofi_addr[nid], self->cfg.br1_addr[nid]);
+			}
+			nid = get_node_br1(self, nid, tnt_cache_state, failed_page, mode);
+			loop++;
+			BRANCH_CHECK();
+			LOOP_CHECK();
+			continue;
+
+		case dispatch_indirect_branch:
+		case dispatch_near_ret:
+			//printf("ret 1\n");
+
+			if(unlikely(trace_mode)){
+					self->has_pending_indirect_branch = true;
+					self->pending_indirect_branch_src = self->cfg.cofi_addr[nid];
+				//disassembler_cfg_inspect(&self->cfg, nid);
+				//printf("RET with pending src: %lx\n", self->cfg.cofi_addr[nid]);
+			} else {
+				*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
+			}
+
+			return disas_tip_pending;
+
+		case dispatch_far_transfers:
+			//printf("far branch 1\n");
+			if(unlikely(trace_mode)){
+					self->has_pending_indirect_branch = true;
+					self->pending_indirect_branch_src = self->cfg.cofi_addr[nid];
+			}else {
+				*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
+			}
+
+			return disas_tip_pending;
+
+		case dispatch_failure:
+			assert(false);
+
+		case dispatch_out_of_bounds:
+			//printf("OUT OF BOUNDS\n");
+			if(likely(!trace_mode)){
+				*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
+			}
+			return disas_out_of_bounds;
+
+		case dispatch_infinite_loop:
+			//printf("inf-loop 1\n");
+			if(likely(!trace_mode)){
+				*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
+			}
+			return disas_infinite_loop;
+
+		case dispatch_page_cache_failed:
+			//printf("page_cache_failed 1\n");
+			return disas_page_fault;
 		}
-		nid = get_node_br1(self, nid, tnt_cache_state, failed_page, mode);
-		loop++;
-		BRANCH_CHECK();
-		LOOP_CHECK();
-		DISPATCH();
-
-	do_indirect_branch:
-	do_near_ret:
-		//printf("ret 1\n");
-
-		if(unlikely(trace_mode)){
-    		self->has_pending_indirect_branch = true;
-    		self->pending_indirect_branch_src = self->cfg.cofi_addr[nid];
-			//disassembler_cfg_inspect(&self->cfg, nid);
-			//printf("RET with pending src: %lx\n", self->cfg.cofi_addr[nid]);
-		} else {
-			*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
-		}
-
-		return disas_tip_pending;
-
-	do_far_transfers:
-		//printf("far branch 1\n");
-		if(unlikely(trace_mode)){
-    		self->has_pending_indirect_branch = true;
-    		self->pending_indirect_branch_src = self->cfg.cofi_addr[nid];
-		}else {
-			*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
-		}
-
-		return disas_tip_pending;
-
-	do_failure:
-		assert(false);
-
-	do_out_of_bounds:
-		//printf("OUT OF BOUNDS\n");
-		if(likely(!trace_mode)){
-			*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
-		}
-		return disas_out_of_bounds;
-
-	do_infinite_loop:
-		//printf("inf-loop 1\n");
-		if(likely(!trace_mode)){
-			*new_tracelet = new_from_tracelet_cache_tmp(self->trace_cache->trace_cache, false);
-		}
-		return disas_infinite_loop;
-
-	do_page_cache_failed:
-		//printf("page_cache_failed 1\n");
-		return disas_page_fault;
+	}
 }
 #pragma GCC diagnostic pop
 
-__attribute__((hot)) disas_result_t trace_disassembler(disassembler_t* self, uint64_t entry_point, uint64_t limit, tnt_cache_t* tnt_cache_state, uint64_t* failed_page, disassembler_mode_t mode){
+LIBXDC_HOT disas_result_t trace_disassembler(disassembler_t* self, uint64_t entry_point, uint64_t limit, tnt_cache_t* tnt_cache_state, uint64_t* failed_page, disassembler_mode_t mode){
 
 	*failed_page = 0;
 

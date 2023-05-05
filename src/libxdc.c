@@ -31,18 +31,18 @@ SOFTWARE.
 
 #define LIBXDC_RELEASE_VERSION 2
 
-__attribute__ ((visibility ("default")))  uint16_t libxdc_get_release_version(void){
+LIBXDC_EXPORT uint16_t libxdc_get_release_version(void){
   return LIBXDC_RELEASE_VERSION;
 }
 
-__attribute__ ((visibility ("default")))  void libxdc_reset_trace_cache(libxdc_t* self){
+LIBXDC_EXPORT void libxdc_reset_trace_cache(libxdc_t* self){
   reset_trace_cache(self->disassembler);
 }
 
 /*
-Initlizes basic data structeres and expects function pointers to specific functions. 
+Initlizes basic data structeres and expects function pointers to specific functions.
 */
-__attribute__ ((visibility ("default")))  libxdc_t* libxdc_init(uint64_t filter[4][2], void* (*page_cache_fetch_fptr)(void*, uint64_t, bool*), void* page_cache_fetch_opaque, void* bitmap_ptr, size_t bitmap_size){
+LIBXDC_EXPORT libxdc_t* libxdc_init(uint64_t filter[4][2], void* (*page_cache_fetch_fptr)(void*, uint64_t, bool*), void* page_cache_fetch_opaque, void* bitmap_ptr, size_t bitmap_size){
   libxdc_t* self = malloc(sizeof(libxdc_t));
   memset(self, 0, sizeof(libxdc_t));
 
@@ -64,57 +64,57 @@ __attribute__ ((visibility ("default")))  libxdc_t* libxdc_init(uint64_t filter[
 }
 
 /* register rq handler */
-__attribute__ ((visibility ("default")))  void libxdc_register_bb_callback(libxdc_t* self,  void (*basic_block_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* basic_block_callback_opaque){
+LIBXDC_EXPORT void libxdc_register_bb_callback(libxdc_t* self,  void (*basic_block_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* basic_block_callback_opaque){
   assert(self);
   self->disassembler->basic_block_callback = basic_block_callback;
   self->disassembler->basic_block_callback_opaque = basic_block_callback_opaque;
 }
 
 /* register rq handler */
-__attribute__ ((visibility ("default")))  void libxdc_register_edge_callback(libxdc_t* self,  void (*edge_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* edge_callback_opaque){
+LIBXDC_EXPORT void libxdc_register_edge_callback(libxdc_t* self,  void (*edge_callback)(void*, disassembler_mode_t, uint64_t, uint64_t), void* edge_callback_opaque){
   assert(self);
   self->disassembler->trace_edge_callback = edge_callback;
   self->disassembler->trace_edge_callback_opaque = edge_callback_opaque;
 }
 
 /* register rq handler */
-__attribute__ ((visibility ("default")))  void libxdc_register_ip_callback(libxdc_t* self,  void (*ip_callback)(void*, disassembler_mode_t, uint64_t), void* ip_callback_opaque){
+LIBXDC_EXPORT void libxdc_register_ip_callback(libxdc_t* self,  void (*ip_callback)(void*, disassembler_mode_t, uint64_t), void* ip_callback_opaque){
   assert(self);
   self->decoder->ip_callback = ip_callback;
   self->decoder->ip_callback_opaque = ip_callback_opaque;
-} 
+}
 
 /* enable rq tracing */
-__attribute__ ((visibility ("default")))  void libxdc_enable_tracing(libxdc_t* self){
+LIBXDC_EXPORT void libxdc_enable_tracing(libxdc_t* self){
   self->disassembler->trace_mode = true;
 }
 
 /* disable rq tracing */
-__attribute__ ((visibility ("default")))  void libxdc_disable_tracing(libxdc_t* self){
+LIBXDC_EXPORT void libxdc_disable_tracing(libxdc_t* self){
   self->disassembler->trace_mode = false;
 }
 
 /* get bitmap hash */
-__attribute__ ((visibility ("default")))  uint64_t libxdc_bitmap_get_hash(libxdc_t* self){
+LIBXDC_EXPORT uint64_t libxdc_bitmap_get_hash(libxdc_t* self){
   return fuzz_bitmap_get_hash(self->fuzz_bitmap);
 }
 
-__attribute__ ((visibility ("default"))) void libxdc_bitmap_reset(libxdc_t* self){
+LIBXDC_EXPORT void libxdc_bitmap_reset(libxdc_t* self){
   fuzz_bitmap_reset(self->fuzz_bitmap);
 }
 
 /* decode trace */
-__attribute__ ((visibility ("default"))) decoder_result_t libxdc_decode(libxdc_t* self, uint8_t* data, size_t len){
+LIBXDC_EXPORT decoder_result_t libxdc_decode(libxdc_t* self, uint8_t* data, size_t len){
   assert(data[len] == 0x55);
   return decode_buffer(self->decoder, data, len);
 }
 
 /* get page fault addr */
-__attribute__ ((visibility ("default")))  uint64_t libxdc_get_page_fault_addr(libxdc_t* self){
+LIBXDC_EXPORT uint64_t libxdc_get_page_fault_addr(libxdc_t* self){
   return pt_decoder_get_page_fault_addr(self->decoder);
 }
 
-__attribute__ ((visibility ("default")))  void libxdc_free(libxdc_t* self){
+LIBXDC_EXPORT void libxdc_free(libxdc_t* self){
   destroy_disassembler(self->disassembler);
   pt_decoder_destroy(self->decoder);
   free(self->fuzz_bitmap);

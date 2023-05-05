@@ -24,14 +24,9 @@ SOFTWARE.
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <unistd.h>
-#include <sys/time.h>
 #include <inttypes.h>
 #include <capstone/capstone.h>
 #include <capstone/x86.h>
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
 #include "tnt_cache.h"
 #include "khash.h"
 #include "trace_cache.h"
@@ -39,7 +34,7 @@ SOFTWARE.
 
 disassembler_t* init_disassembler(uint64_t filter[4][2], void* (*page_cache_fetch_fptr)(void*, uint64_t, bool*), void* page_cache_fetch_opaque, fuzz_bitmap_t* fuzz_bitmap);
 int get_capstone_mode(int word_width_in_bits);
- __attribute__((hot)) disas_result_t trace_disassembler(disassembler_t* self, uint64_t entry_point, uint64_t limit, tnt_cache_t* tnt_cache_state, uint64_t* failed_page, disassembler_mode_t mode);
+LIBXDC_HOT disas_result_t trace_disassembler(disassembler_t* self, uint64_t entry_point, uint64_t limit, tnt_cache_t* tnt_cache_state, uint64_t* failed_page, disassembler_mode_t mode);
 void destroy_disassembler(disassembler_t* self);
 
 void reset_trace_cache(disassembler_t* self);
